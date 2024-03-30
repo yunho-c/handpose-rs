@@ -1,0 +1,3 @@
+[submodule "hand-gesture-recognition-using-onnx"]
+	path = hand-gesture-recognition-using-onnx
+	url = https://github.com/k2m5t2/hand-gesture-recognition-using-onnx
