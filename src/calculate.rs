@@ -18,11 +18,14 @@ fn normalize_radians(angle: f32) -> f32 {
 
 
 // fn postprocess_palms(shape: Array1<i32>, boxes: Array2<f32>, threshold: f32) -> Array1<f32> {
-pub fn postprocess_palms(imshape: Array1<i32>, boxes: Array2<f32>, threshold: f32) -> Array2<f32> {
+// pub fn postprocess_palms(imshape: Array1<i32>, boxes: Array2<f32>, threshold: f32) -> Array2<f32> {
+pub fn postprocess_palms(imshape: (i32, i32), boxes: Array2<f32>, threshold: f32) -> Array2<f32> {
   // TODO make threshold arg optional? but honestly not an urgence, it's just for conciseness
 
-  let image_height = imshape[0] as f32;
-  let image_width = imshape[1] as f32;
+  // let image_height = imshape[0] as f32;
+  // let image_width = imshape[1] as f32;
+  let image_height = imshape.0 as f32;
+  let image_width = imshape.1 as f32;
 
   // keep = boxes[.., 0] > threshold;
   // let confs = boxes[.., 0];
@@ -60,11 +63,16 @@ pub fn postprocess_palms(imshape: Array1<i32>, boxes: Array2<f32>, threshold: f3
 }
 
 
-pub fn calculate_rects(palm_dets: Array2<f32>, imshape: Array1<i32>) -> Array2<f32> {
-  let w = imshape[1] as f32;
-  let h = imshape[0] as f32;
-  let w_i = imshape[1] as i32;
-  let h_i = imshape[0] as i32;
+// pub fn calculate_rects(palm_dets: Array2<f32>, imshape: Array1<i32>) -> Array2<f32> {
+pub fn calculate_rects(palm_dets: Array2<f32>, imshape: (i32, i32)) -> Array2<f32> {
+  // let w = imshape[1] as f32;
+  // let h = imshape[0] as f32;
+  // let w_i = imshape[1] as i32;
+  // let h_i = imshape[0] as i32;
+  let w = imshape.1 as f32;
+  let h = imshape.0 as f32;
+  let w_i = imshape.1 as i32;
+  let h_i = imshape.0 as i32;
   let wh_ratio = 1.; // NOTE not sure if it's ever not 1 (test and see!)
 
   let mut rects_vec: Vec<(f32, f32, f32, f32, f32)> = Vec::new();
