@@ -261,7 +261,8 @@ pub fn rotate_points_around_z_axis(points: Array2<f32>, center: [f32; 2], angle_
 
   // Calculate the center point
   // let center = points.mean_axis(ndarray::Axis(0)).expect("Cannot compute the mean");
-  let center = arr2(&[[center[0], center[1]]]);
+  // let center = arr2(&[[center[0], center[1]]]);
+  let center = arr2(&[[center[0], center[1], 0.]]); // ALT1
   // println!("Center: {:?}", center); // GOOD
 
   // Translate points to origin, rotate, and translate back
@@ -307,7 +308,8 @@ pub fn rotate_points_around_z_axis_and_scale(points: Array2<f32>, center: [f32; 
   let rotation_matrix = rotation_matrix * scale;
 
   // Calculate the center point
-  let center = points.mean_axis(ndarray::Axis(0)).expect("Cannot compute the mean");
+  // let center = points.mean_axis(ndarray::Axis(0)).expect("Cannot compute the mean"); // NOTE 쒸발 이거 딱봐도 틀렸는데!? 이거구만... 
+  let center = arr2(&[[center[0], center[1], 0.]]); // NOTE 이게 맞는듯!?
   // println!("Center: {:?}", center); // GOOD
 
   let centered = points - &center;
