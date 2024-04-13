@@ -23,13 +23,13 @@ mod calculate;
 mod visualize;
 
 #[derive(Debug)]
-struct HandResult {
+pub struct HandResult {
   palm: PalmResult,
   landmark: LandmarkResult,
 }
 
 #[derive(Debug)]
-struct PalmResult {
+pub struct PalmResult {
   cx: f32,
   cy: f32,
   size: f32, 
@@ -48,11 +48,11 @@ impl PalmResult {
 }
 
 #[derive(Debug)]
-struct LandmarkResult {
+pub struct LandmarkResult {
   coords: Array2<f32>, // 21x3
 }
 
-struct Handpose {
+pub struct Handpose {
   palm_file: PathBuf,
   palm_model: Session,
   palm_size: u32,
