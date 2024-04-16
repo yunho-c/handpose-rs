@@ -59,11 +59,11 @@ pub struct LandmarkResult {
 }
 
 pub struct Handpose {
-  palm_file: PathBuf,
+  // palm_file: PathBuf,
   palm_model: InMemorySession<'static>,
   palm_size: u32,
 
-  ldmk_file: PathBuf,
+  // ldmk_file: PathBuf,
   ldmk_model: InMemorySession<'static>,
   ldmk_size: u32,
 
