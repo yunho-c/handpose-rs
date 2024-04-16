@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 // arrays/vectors/tensors
 use ndarray::{array, s, Array, Array1, Array2, Array3, Array4, ArrayBase, ArrayD, Axis, IxDynImpl};
 use ndarray::{OwnedRepr, Dim, IxDyn, Ix2};
-use ort::{GraphOptimizationLevel, InMemorySession, InMemorySession, Session};
+use ort::{GraphOptimizationLevel, InMemorySession, Session};
 // images
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, Rgba};
@@ -70,9 +70,6 @@ pub struct Handpose {
   detection_threshold: f32
 }
 
-static PALM_FILE: &[u8] = include_bytes!("../hand-gesture-recognition-using-onnx/model/palm_detection/palm_detection_full_inf_post_192x192.ort");
-static LANDMARK_FILE: &[u8] = include_bytes!("../hand-gesture-recognition-using-onnx/model/hand_landmark/hand_landmark_sparse_Nx3x224x224.ort");
-
 impl Handpose {
   pub fn new() -> Result<Self, Box<dyn Error>>{
     #[cfg(target_arch = "wasm32")]
@@ -118,7 +115,7 @@ impl Handpose {
   /// landmark: contains ldmk info, in both abs & rel: [n*21*3]
   /// perhaps even provide an appearance embedding (provided by segmentation mask or hand-specific embedder) & gesture info!
 
-  pub fn process(&&self, image: DynamicImage) -> Result<Vec<HandResult>, Box<dyn Error>> {
+  pub fn process(&self, image: DynamicImage) -> Result<Vec<HandResult>, Box<dyn Error>> {
   // pub fn process(self, image: DynamicImage) -> Result<(), Box<dyn Error>> {
     let (original_width, original_height) = image.dimensions();
     // Palm Detection
@@ -126,7 +123,7 @@ impl Handpose {
     let palm_inputs = ort::inputs!["input" => self.image_to_onnx_input(palm_img.clone()).view()]?;
     // println!("{:?}", palm_inputs);
     let palm_outputs = self.palm_model.run(palm_inputs)?;
-    let palm_preds = palm_outputs["pdscore_boxx_boxy_boxsize_kp0x_kp0y_kp2x_kp2y"].try_try_extract_tensor::<f32>()?;
+    let palm_preds = palm_outputs["pdscore_boxx_boxy_boxsize_kp0x_kp0y_kp2x_kp2y"].try_extract_tensor::<f32>()?;
     let palm_preds_view = palm_preds.view().t().slice(s![.., ..]).into_owned();
     let palm_imshape = (self.palm_size as _, self.palm_size as _);
     let palm_dets = calculate::postprocess_palms(palm_imshape, palm_preds_view, self.detection_threshold);
