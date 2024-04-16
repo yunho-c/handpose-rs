@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 // arrays/vectors/tensors
 use ndarray::{array, s, Array, Array1, Array2, Array3, Array4, ArrayBase, ArrayD, Axis, IxDynImpl};
 use ndarray::{OwnedRepr, Dim, IxDyn, Ix2};
-use ort::{GraphOptimizationLevel, Session};
+use ort::{GraphOptimizationLevel, InMemorySession, Session};
 // images
 use image::io::Reader as ImageReader;
 use image::{DynamicImage, GenericImageView, ImageBuffer, Rgb, Rgba};
@@ -19,13 +19,18 @@ use image::imageops::FilterType::{self, CatmullRom};
 use imageproc::drawing::draw_filled_rect_mut;
 use imageproc::rect::Rect;
 // use show_image::{event, AsImageView, WindowOptions};
-mod calculate;
-mod visualize;
+pub mod calculate;
+pub mod visualize;
+
+use serde::{Serialize, Deserialize};
+
+static PALM_MODEL_BYTES: &[u8] = include_bytes!("../model/palm_detection_full_inf_post_192x192.ort");
+static LDMK_MODEL_BYTES: &[u8] = include_bytes!("../model/hand_landmark_sparse_Nx3x224x224.ort");
 
 #[derive(Debug)]
 pub struct HandResult {
-  palm: PalmResult,
-  landmark: LandmarkResult,
+  pub palm: PalmResult,
+  pub landmark: LandmarkResult,
 }
 
 #[derive(Debug)]
@@ -47,18 +52,19 @@ impl PalmResult {
   }
 }
 
+
 #[derive(Debug)]
 pub struct LandmarkResult {
-  coords: Array2<f32>, // 21x3
+  pub coords: Array2<f32>, // 21x3
 }
 
 pub struct Handpose {
   palm_file: PathBuf,
-  palm_model: Session,
+  palm_model: InMemorySession<'static>,
   palm_size: u32,
 
   ldmk_file: PathBuf,
-  ldmk_model: Session,
+  ldmk_model: InMemorySession<'static>,
   ldmk_size: u32,
 
   detection_threshold: f32
@@ -66,22 +72,25 @@ pub struct Handpose {
 
 impl Handpose {
   pub fn new() -> Result<Self, Box<dyn Error>>{
+    #[cfg(target_arch = "wasm32")]
+    ort::wasm::initialize();
+
     // user params
     let detection_threshold = 0.5;
     
     // models
     let palm_file = PathBuf::from("./hand-gesture-recognition-using-onnx/model/palm_detection/palm_detection_full_inf_post_192x192.onnx");
     let palm_model = Session::builder()?
-      .with_optimization_level(GraphOptimizationLevel::Level3)?
+      // .with_optimization_level(GraphOptimizationLevel::Level3)?
       .with_intra_threads(4)?
-      .with_model_from_file(&palm_file)?;
+      .commit_from_memory_directly(PALM_MODEL_BYTES)?;
     let palm_size = 192;
 
     let ldmk_file = PathBuf::from("./hand-gesture-recognition-using-onnx/model/hand_landmark/hand_landmark_sparse_Nx3x224x224.onnx");
     let ldmk_model = Session::builder()?
-      .with_optimization_level(GraphOptimizationLevel::Level3)?
+      // .with_optimization_level(GraphOptimizationLevel::Level3)?
       .with_intra_threads(4)?
-      .with_model_from_file(&ldmk_file)?;
+      .commit_from_memory_directly(LDMK_MODEL_BYTES)?;
     let ldmk_size = 224;
 
     Ok( Self { palm_file, palm_model, palm_size, ldmk_file, ldmk_model, ldmk_size, detection_threshold })
@@ -108,7 +117,7 @@ impl Handpose {
   /// landmark: contains ldmk info, in both abs & rel: [n*21*3]
   /// perhaps even provide an appearance embedding (provided by segmentation mask or hand-specific embedder) & gesture info!
 
-  pub fn process(self, image: DynamicImage) -> Result<Vec<HandResult>, Box<dyn Error>> {
+  pub fn process(&self, image: DynamicImage) -> Result<Vec<HandResult>, Box<dyn Error>> {
   // pub fn process(self, image: DynamicImage) -> Result<(), Box<dyn Error>> {
     let (original_width, original_height) = image.dimensions();
     // Palm Detection
@@ -116,7 +125,7 @@ impl Handpose {
     let palm_inputs = ort::inputs!["input" => self.image_to_onnx_input(palm_img.clone()).view()]?;
     // println!("{:?}", palm_inputs);
     let palm_outputs = self.palm_model.run(palm_inputs)?;
-    let palm_preds = palm_outputs["pdscore_boxx_boxy_boxsize_kp0x_kp0y_kp2x_kp2y"].extract_tensor::<f32>()?;
+    let palm_preds = palm_outputs["pdscore_boxx_boxy_boxsize_kp0x_kp0y_kp2x_kp2y"].try_extract_tensor::<f32>()?;
     let palm_preds_view = palm_preds.view().t().slice(s![.., ..]).into_owned();
     let palm_imshape = (self.palm_size as _, self.palm_size as _);
     let palm_dets = calculate::postprocess_palms(palm_imshape, palm_preds_view, self.detection_threshold);
@@ -138,7 +147,7 @@ impl Handpose {
     let ldmk_inputs = ort::inputs!["input" => self.images_to_onnx_input(ldmk_imgs.clone()).view()]?;
     // println!("{:?}", ldmk_inputs);
     let ldmk_outputs = self.ldmk_model.run(ldmk_inputs)?;
-    let ldmk_preds = ldmk_outputs["xyz_x21"].extract_tensor::<f32>()?;
+    let ldmk_preds = ldmk_outputs["xyz_x21"].try_extract_tensor::<f32>()?;
     let ldmk_preds_view = ldmk_preds.view().clone().into_owned();
     // println!("ldmk_preds_view: {:?}", ldmk_preds_view);
     let ldmk_rels_local = (ldmk_preds_view / 224.).clone().into_owned().into_shape((hand_count, 21, 3))?;
@@ -146,7 +155,7 @@ impl Handpose {
 
 
     let pixmap = visualize::visualize2(ldmk_imgs[0].clone(), ldmk_rels_local.slice(s![0, .., ..]).clone().into_owned());
-    pixmap.save_png("./ldmk_viz.png")?;
+    pixmap.save_png("./viz/ldmk_viz.png")?;
 
     // let ldmk_rels_global = 
 
@@ -219,7 +228,6 @@ impl Handpose {
   } 
 }
 
-use serde::Deserialize;
 use std::fs::File;
 use std::io::BufReader;
 
@@ -255,7 +263,7 @@ fn test() -> Result<(), Box<dyn Error>> {
   let hp = Handpose::new()?;
   
   // process
-  let hand_results = hp.process(image)?;
+  let hand_results = hp.process(image.clone())?;
   println!("hand_results: {:?}", hand_results);
   
   // assess accuracy
@@ -297,8 +305,9 @@ fn test() -> Result<(), Box<dyn Error>> {
   // visualize::visualize2(image, palm_rects.slice(s![.., 0]).into_owned(), ldmk_preds_rel, scale_factor); // ALT1
   for hand in hand_results.iter() {
     let (cx_r, cy_r, size, rotation) = (hand.palm.cx, hand.palm.cy, hand.palm.size, hand.palm.rotation);
-    let pixmap = visualize::visualize2(palm_img.clone(), ldmk_coords_test.clone()); // ALT1
-    pixmap.save_png("./hand_viz.png");
+    // let pixmap = visualize::visualize2(palm_img.clone(), ldmk_coords_test.clone()); // ALT1
+    let pixmap = visualize::visualize2(image.clone(), ldmk_coords_test.clone()); // ALT1
+    pixmap.save_png("./viz/hand_viz.png");
   }
     
 
@@ -307,6 +316,9 @@ fn test() -> Result<(), Box<dyn Error>> {
 
 
 fn main() -> Result<(), Box<dyn Error>>{
+  #[cfg(target_arch = "wasm32")]
+	ort::wasm::initialize();
+
   test()?;
   Ok(())
 }
