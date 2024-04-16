@@ -328,7 +328,7 @@ pub fn visualize(
     pixmap.save_png("hand_viz.png").unwrap();
 }
 
-pub fn draw(ldmk_pred_recovered: Array2<f32>, pixmap: &mut Pixmap) {
+pub fn draw(ldmk_pred_recovered: Array2<f32>, radius: f32, pixmap: &mut Pixmap) {
     let thumb_paint = Paint {
         shader: Shader::SolidColor(Color::from_rgba8(180, 229, 255, 255)), // Green color
         ..Default::default()
@@ -362,17 +362,23 @@ pub fn draw(ldmk_pred_recovered: Array2<f32>, pixmap: &mut Pixmap) {
         let x = xyz[0];
         let y = xyz[1];
         if i == 0 {
-            thumb_path_builder.push_circle(x, y, RADIUS)
+            // thumb_path_builder.push_circle(x, y, RADIUS)
+            thumb_path_builder.push_circle(x, y, radius)
         } else if (i - 1) / 4 == 0 {
-            thumb_path_builder.push_circle(x, y, RADIUS)
+            // thumb_path_builder.push_circle(x, y, RADIUS)
+            thumb_path_builder.push_circle(x, y, radius)
         } else if (i - 1) / 4 == 1 {
-            index_path_builder.push_circle(x, y, RADIUS)
+            // index_path_builder.push_circle(x, y, RADIUS)
+            index_path_builder.push_circle(x, y, radius)
         } else if (i - 1) / 4 == 2 {
-            middle_path_builder.push_circle(x, y, RADIUS)
+            // middle_path_builder.push_circle(x, y, RADIUS)
+            middle_path_builder.push_circle(x, y, radius)
         } else if (i - 1) / 4 == 3 {
-            ring_path_builder.push_circle(x, y, RADIUS)
+            // ring_path_builder.push_circle(x, y, RADIUS)
+            ring_path_builder.push_circle(x, y, radius)
         } else {
-            pinky_path_builder.push_circle(x, y, RADIUS)
+            // pinky_path_builder.push_circle(x, y, RADIUS)
+            pinky_path_builder.push_circle(x, y, radius)
         }
     }
 
@@ -446,7 +452,7 @@ pub fn visualize2(image: DynamicImage, points_rel: Array<f32, Ix2>) -> Pixmap {
     let points_rel = points_rel * height as f32;
 
     // /// PAINT ///
-    draw(points_rel, &mut pixmap);
+    draw(points_rel, width as f32 / 100., &mut pixmap);
 
     // pixmap.save_png("hand_viz.png").unwrap();
     return pixmap;
